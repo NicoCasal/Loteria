@@ -70,6 +70,7 @@ contract Loteria is ERC20, Ownable {
 
     //tokens buy ERC20
     function compraTokens (uint256 _numTokens) public payable{
+
         //user reggit
         if(usuario_contract[msg.sender] == address(0)){
             registrar();
@@ -77,45 +78,44 @@ contract Loteria is ERC20, Ownable {
         //establecer el precio de los token a comprar
         uint256 coste = precioTokens(_numTokens);
         require (msg.value >= coste, "compra menos tokens o paga mas ETH");
+
         //obtencion del numero de tokens disponible
         uint256 balance = balanceTokenSC();
         require (_numTokens <= balance, "compra menos tokens");
+
         //devolucion del dinero sobrante
         uint256 returnValue = msg.value - coste;
+
         //el smart contrar devuelve la cantidad restante
         payable(msg.sender).transfer(returnValue);
+
         //envio de los tokens al usurio
-        _transfer(address(this), msg.sender, _numTokens);
-        
+        _transfer(address(this), msg.sender, _numTokens); 
+
     } 
 
+    //devolucion de tokens al smart contract
+    function devolverTokens(uint _numTokens) public payable{
 
+        //el numero de tokens debe ser mayor a 0
+        require(_numTokens > 0, "necesitas devolver un numero mayor a 0");
 
+        //el uusuario debe acreditar el numero de token  que quiere devolver
+        require (_numTokens <= balanceTokens(msg.sender), "no tienes los tokens que deceas devolver");
+        
+        //el usurio transfiere los tokens al smart contract
+        _transfer(msg.sender, address(this), _numTokens);
+        
+        //el smart contract envia los eth al usuario
+        payable (msg.sender).transfer(precioTokens(_numTokens));
 
-
-
-
-
-
-
-
-
-
-
-
+    }
 
 
 
 
 
 }
-
-
-
-
-
-
-
 
 
 
