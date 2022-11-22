@@ -168,6 +168,30 @@ contract Loteria is ERC20, Ownable {
         return idPersona_boletos[_propietario];
     }
 
+
+
+
+    //generacion del ganador de la loteria
+    function generarGanador()public onlyOwner{
+        //declaracion de longitud de array
+         uint longitud = boletosComprados.length;
+        //verificacion de compra de almenos 1 boleto
+        require(longitud > 0, "no hay boletos comprados");
+        //eleccion aleatoria de un numero entre: [0 - longitud]
+        uint random = uint(uint(keccak256(abi.encodePacked(block.timestamp)))% longitud);
+        //seleccion de un numero aleatorio
+        uint eleccion =boletosComprados[random];
+        //direccion del ganador de la loteria
+        ganador = ADNBoleto[eleccion];
+        // envio del 95% del premio de la loteria al ganador
+        payable(ganador).transfer(address(this).balance * 95 /100);
+        //envio del 5% del premio de loteria al owner
+        payable(owner()).transfer(address(this).balance * 5 /100);
+
+
+       
+    }
+
 }
 
 
