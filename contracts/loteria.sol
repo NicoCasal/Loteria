@@ -4,6 +4,7 @@ pragma solidity ^0.8.4;
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "hardhat/console.sol";
 
 contract Loteria is ERC20, Ownable {
 
@@ -25,7 +26,7 @@ contract Loteria is ERC20, Ownable {
     address public ganador;
 
     //registration
-    mapping(address => address) public user_contract;
+    mapping(address => address) public usuario_contract;
 
     //Token Priece
     function precioTokens(uint256 _numTokens) internal pure returns(uint256){
@@ -64,7 +65,7 @@ contract Loteria is ERC20, Ownable {
 
     //user info
     function usersInfo(address _account) public view returns (address){
-        return usurio_contact[_account];
+        return usuario_contract[_account];
     }
 
 
@@ -77,11 +78,13 @@ contract Loteria is ERC20, Ownable {
         }
         //establecer el precio de los token a comprar
         uint256 coste = precioTokens(_numTokens);
-        require (msg.value >= coste, "compra menos tokens o paga mas ETH");
+        require (msg.value >= coste,
+                 "compra menos tokens o paga mas ETH");
 
         //obtencion del numero de tokens disponible
-        uint256 balance = balanceTokenSC();
-        require (_numTokens <= balance, "compra menos tokens");
+        uint256 balance = balanceTokensSC();
+        require (_numTokens <= balance,
+                 "compra menos tokens");
 
         //devolucion del dinero sobrante
         uint256 returnValue = msg.value - coste;
@@ -98,10 +101,12 @@ contract Loteria is ERC20, Ownable {
     function devolverTokens(uint _numTokens) public payable{
 
         //el numero de tokens debe ser mayor a 0
-        require(_numTokens > 0, "necesitas devolver un numero mayor a 0");
+        require(_numTokens > 0,
+                 "necesitas devolver un numero mayor a 0");
 
         //el uusuario debe acreditar el numero de token  que quiere devolver
-        require (_numTokens <= balanceTokens(msg.sender), "no tienes los tokens que deceas devolver");
+        require (_numTokens <= balanceTokens(msg.sender),
+                 "no tienes los tokens que deceas devolver");
         
         //el usurio transfiere los tokens al smart contract
         _transfer(msg.sender, address(this), _numTokens);
@@ -112,8 +117,56 @@ contract Loteria is ERC20, Ownable {
     }
 
 
+              //=======================================//
+             //=========gestion de la loteria=========//
+            //=======================================//
+
+    //precio del boleto de la loteria (en tokens ERC-20)
+    uint public precioBoleto = 5;
+    //relacion: persona que compra los boletos -> el numero de los boletos
+   mapping(address => uint []) idPersona_boletos;
+   //relacion: boleto -> ganador
+   mapping(uint => address) ADNBoleto;
+   //numero aleatorio
+   uint randNonce = 0;
+   //boletos de la loteria generados
+   uint [] boletosComprados;
 
 
+   //compra de boletos de loteria
+   function compraBoletos(uint _numBoletos) public{
+    //precio total de los boletos a comprar
+    uint precioTotal = _numBoletos*precioBoleto;
+    //verificacion de los tekens del usuario
+    require(precioTotal <= balanceTokens(msg.sender),
+            "no tienes tokens suficientes");
+    //transferencia de tojens del usuario al smart contract 
+    _transfer(msg.sender, address(this), precioTotal);
+
+    /*recoge la marca de tiempo (block.timestamp), msg.sender y un Nonce
+    (un numero que solo se ultilixa una vez, para que no ejecutemos dos veces la misma
+    funcion de hash con lso msimos parametros de entrada) enincremento.
+    se utiliza keccak256 para convetir estas entradas a un hash aleatorio,
+    convertir ese hash a un uint y luego utilizmaos % 10000 para tomar los ultimos 4 digitos, 
+    dando un valor aleatorio entre 0 - 9999. */
+    for (uint i = 0; i < _numBoletos; i++){
+        uint random =uint(keccak256(abi.encodePacked(block.timestamp, msg.sender, randNonce))) % 10000;
+        randNonce++;
+        //almacenamiento de los datos del boleto enlazados al usuario
+        idPersona_boletos[msg.sender].push(random);
+        //almacenamiento de los datos de los boletos
+        boletosComprados.push(random);
+        //asigancion del adn del boleto para la generacion de un ganador
+        ADNBoleto[random] = msg.sender;
+        //creacion de un nuevo nft para el numero de boleto
+        boletosNFT(usuario_contract[msg.sender]).mintBoletos(msg.sender, random);
+    }
+   }
+
+    //visualizacion de los boletos del usuario
+    function tusBoletos(address _propietario)public view returns(uint [] memory){
+        return idPersona_boletos[_propietario];
+    }
 
 }
 
@@ -123,8 +176,9 @@ contract Loteria is ERC20, Ownable {
 //NFTs smart contract
 contract mainERC721 is ERC721{
     address public direccionLoteria;
-    constructor() ERC721 ("Loteria", "STE"){}
+    constructor() ERC721 ("Loteria", "STE"){
         direccionLoteria = msg.sender;
+    }
     //nft creation
     function safeMint(address _propietario, uint256 _boleto) public  {
         require(msg.sender == Loteria(direccionLoteria).usersInfo(_propietario),
